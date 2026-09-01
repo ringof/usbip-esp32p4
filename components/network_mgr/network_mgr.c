@@ -255,11 +255,6 @@ esp_err_t network_mgr_init(void)
     return ESP_OK;
 }
 
-esp_netif_t *network_mgr_get_netif(void)
-{
-    return s_eth_netif;
-}
-
 void network_mgr_update_mdns_devices(int device_count)
 {
     char buf[8];
