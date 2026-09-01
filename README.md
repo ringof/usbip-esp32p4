@@ -5,12 +5,12 @@ A standalone USB/IP server running on the ESP32-P4-Nano that exports locally-con
 ## Features
 
 - **Wire-compatible** with standard USB/IP clients (`usbip` on Linux, `usbip-win`/`usbip-win2` on Windows)
-- **USB 2.0 High-Speed** (480 Mbps) with all transfer types: control, bulk, interrupt, isochronous
-- **Hub support** for multiple simultaneous devices
+- **USB 2.0 High-Speed** (480 Mbps) - control, bulk, and interrupt transfers; isochronous works within tight bandwidth/MPS limits (see [Known Limitations](#known-limitations))
+- **Single-hub support** for multiple simultaneous devices, with live topology in the Web UI
 - **100 Mbps Ethernet** with IEEE 802.3x flow control and tuned lwIP stack
 - **Link-local (AUTOIP)** - reachable at 169.254.x.x on a direct cable with no DHCP
 - **mDNS discovery** (`_usbip._tcp`) - auto-discoverable on the network
-- **Real-time Web UI** dashboard with device tree, bandwidth monitoring, and event log
+- **Real-time Web UI** dashboard with device tree, bandwidth monitoring, event log, and a USB bus-reset control
 - **Access control** with open/closed mode and IP allowlist (persisted in NVS)
 - **360 MHz dual-core RISC-V** with 32 MB PSRAM
 
@@ -26,13 +26,42 @@ A standalone USB/IP server running on the ESP32-P4-Nano that exports locally-con
 
 ## Quick Start
 
-### Prerequisites
+You don't need a build environment to run this. Grab a prebuilt binary from
+[**Releases**](https://github.com/ringof/usbip-esp32p4/releases/latest) and flash it — or build from source if you're developing.
+
+### Flash a prebuilt release (no toolchain required)
+
+1. Download **`usbip-esp32p4-merged.bin`** from the [latest release](https://github.com/ringof/usbip-esp32p4/releases/latest).
+   It's a single combined image (bootloader + partition table + app) that flashes at offset `0x0` — nothing else to download, no offsets to get right.
+2. Connect the board's **USB-C console port** to your PC (the one that shows up as a serial/COM port — *not* the USB-A host port where you plug in the devices you want to export).
+3. Flash it, using **either** method:
+
+   **A. Browser flasher — nothing to install** (Chrome or Edge):
+   Open **[ESP Launchpad / esptool-js](https://espressif.github.io/esptool-js/)** → *Connect* → pick the board's serial port → add `usbip-esp32p4-merged.bin` at offset `0x0` → *Program*.
+
+   **B. Command line — `esptool`** (`pip install esptool`, or use one already in your ESP-IDF environment):
+   ```bash
+   esptool --chip esp32p4 -p COM3 write-flash 0x0 usbip-esp32p4-merged.bin
+   ```
+   Replace `COM3` (Windows) / `/dev/ttyUSB0` (Linux) / `/dev/cu.usbserial-*` (macOS) with your port. Omit `-p ...` and esptool will auto-detect.
+
+4. Reset the board. Watch the serial console at **115200 baud** — it prints its IP address on boot.
+
+> If flashing can't sync, put the board in download mode: hold **BOOT**, tap **RESET**, release **BOOT**, then retry.
+
+Then jump to [Connect from Linux](#connect-from-linux) / [Connect from Windows](#connect-from-windows) below.
+
+### Build from source
+
+For development, or to modify the firmware:
+
+**Prerequisites**
 
 - [ESP-IDF v6.0.2](https://docs.espressif.com/projects/esp-idf/en/v6.0/esp32p4/get-started/) with ESP32-P4 support
 - ESP32-P4-Nano board with IP101 Ethernet PHY
 - USB device(s) to export
 
-### Build and Flash
+**Build and flash**
 
 ```bash
 source /path/to/esp-idf/export.sh
@@ -111,7 +140,7 @@ ESP32-P4-Nano
 | `usbip_server` | TCP listener, DEVLIST and IMPORT handlers |
 | `transfer_engine` | URB forwarding bridge (USB <-> network) |
 | `network_mgr` | IP101 Ethernet, DHCP + link-local, mDNS |
-| `webui` | HTTP server, WebSocket, HTMX dashboard |
+| `webui` | HTTP server, WebSocket, single-page JS dashboard |
 | `access_control` | Open/closed mode, IP allowlist, NVS persistence |
 | `event_log` | PSRAM ring buffer for structured event logging |
 
@@ -210,9 +239,23 @@ The effective throughput is limited by the **100 Mbps Ethernet** link and the ES
 | USB/IP protocol overhead | ~10 MB/s for bulk transfers |
 | Practical throughput | **5-10 MB/s** depending on transfer pattern |
 
-This is more than sufficient for most USB devices. IC programmers, HID devices, dongles, serial adapters, and even many storage operations work well within these limits. Devices that require sustained high-bandwidth (e.g., USB 2.0 webcams at high resolution) may experience reduced frame rates.
+This is more than sufficient for the devices this project targets: IC programmers, HID devices, dongles, and serial adapters (FTDI et al.) all work comfortably, as do many storage operations. High-bandwidth **isochronous** devices are the exception — see the envelope below.
 
 **Latency** is typically 1-3 ms per USB transaction over a local Ethernet network.
+
+### Practical device envelope
+
+Beyond wire throughput, the ESP32-P4's USB host controller (DWC OTG) imposes some hard ceilings worth knowing *before you pick a device*. These are ESP-IDF / P4 silicon limits, not firmware bugs:
+
+| Constraint | What it means for you |
+|-----------|-----------------------|
+| **~16 host channels** (one per claimed endpoint) | ~1 fully-active quad device (e.g. FT4232H = 8 bulk endpoints) before `No more HCD channels`. Simple devices — a serial adapter, a dongle — cost far fewer, so you can run many. |
+| **No Transaction Translator** | Full-/Low-Speed devices must plug into the **root port directly**. Behind a High-Speed hub their port is disabled (`transaction translator not supported`). |
+| **Isochronous is bandwidth-boxed** | USB **webcams won't stream**: the client batches isoc into ~384 KB URBs that exceed the P4's ~250 KB DMA-capable pool, so the URB can't even be allocated. Enumeration and attach work; video does not. |
+| **FS isochronous MPS ≤ 512** | An isoc endpoint with `wMaxPacketSize > 512` (e.g. a 768-byte headset speaker) can't be claimed. A small mic (144 B) is fine. |
+| **Single hub only** | One hub works and its topology is shown in the Web UI. Chained/multi-level hubs can't be disambiguated (ESP-IDF exposes no parent handle), so same-port devices on different hubs would collide. |
+
+See [Known Limitations](#known-limitations) for the complete list, including transport and protocol constraints.
 
 ## Tools
 
