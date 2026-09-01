@@ -1010,31 +1010,6 @@ body {
 }
 
 /* ---- Utility ---- */
-.hidden {
-    display: none !important;
-}
-
-.text-mono {
-    font-family: var(--mono);
-}
-
 .text-dim {
     color: var(--text-dim);
 }
-
-.text-accent {
-    color: var(--accent);
-}
-
-.text-green {
-    color: var(--green);
-}
-
-.text-red {
-    color: var(--red);
-}
-
-.mt-1 { margin-top: 0.5rem; }
-.mt-2 { margin-top: 1rem; }
-.mb-1 { margin-bottom: 0.5rem; }
-.mb-2 { margin-bottom: 1rem; }

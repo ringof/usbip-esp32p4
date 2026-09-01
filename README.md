@@ -140,7 +140,7 @@ ESP32-P4-Nano
 | `usbip_server` | TCP listener, DEVLIST and IMPORT handlers |
 | `transfer_engine` | URB forwarding bridge (USB <-> network) |
 | `network_mgr` | IP101 Ethernet, DHCP + link-local, mDNS |
-| `webui` | HTTP server, WebSocket, HTMX dashboard |
+| `webui` | HTTP server, WebSocket, single-page JS dashboard |
 | `access_control` | Open/closed mode, IP allowlist, NVS persistence |
 | `event_log` | PSRAM ring buffer for structured event logging |
 

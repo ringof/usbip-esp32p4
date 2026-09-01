@@ -1,5 +1,5 @@
 # USB/IP Server for ESP32-P4-Nano
-# ESP-IDF v5.5 project
+# ESP-IDF v6.0.2 project
 cmake_minimum_required(VERSION 3.16)
 
 set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/components")
