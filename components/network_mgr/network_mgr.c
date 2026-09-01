@@ -39,7 +39,7 @@ static char s_ip_str[16] = "0.0.0.0";
 /* -------------------------------------------------------------------------- */
 static void get_hostname(char *buf, size_t len)
 {
-    const char *default_name = "usbip-esp32p4";
+    const char *default_name = CONFIG_USBIP_HOSTNAME;
     nvs_handle_t nvs;
     if (nvs_open("network", NVS_READONLY, &nvs) == ESP_OK) {
         size_t required = len;
